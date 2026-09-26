@@ -1168,8 +1168,6 @@ module usbuvcuart_top(
     //==============================================================
     //======FIFO
 
-    wire       ep3_rx_dval;
-    wire [7:0] ep3_rx_data;
     reg        ep3_rx_rdy;
     reg        ep3_tx_dval;
     reg  [7:0] ep3_tx_data;
