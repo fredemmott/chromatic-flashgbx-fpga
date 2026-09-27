@@ -3,7 +3,7 @@ import cartio_types::*;
 module cartio_top(
     input  wire        clk,
     input  wire        reset,
-    output logic       enabled_o,
+    output reg         enabled_o,
 
     output reg         rx_ready,
     input  wire        rx_valid,
@@ -38,7 +38,6 @@ always @(posedge clk) begin
         timeout <= timeout - 26'd1;
     end
 end
-assign enabled_o = (timeout != 26'd0);
 
 logic [7:0] fifo [2047:0];
 logic [10:0] fifo_read_p;
@@ -57,7 +56,9 @@ typedef enum {
   S_IDLE,
   S_WAIT_ARG,
   S_EXEC_VERIFY, // post-write CMD_VERIFY_DATA or CMD_VERIFY_STATUS_REGISTER
-  S_EXEC_DELAY
+  S_EXEC_DELAY,
+  S_EXEC_DISCONNECT, // we've hit our timeout; reset MBC, disable
+  S_DISCONNECTED
 } state_t;
 state_t state;
 state_t state_d;
@@ -73,6 +74,16 @@ always @(*) begin
             S_IDLE, S_WAIT_ARG: next_byte_pop = 1'b1;
             default: ;
         endcase
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        enabled_o <= 1'b0;
+    end else if (next_byte_pop) begin
+        enabled_o <= 1'b1;
+    end else if (state == S_DISCONNECTED) begin
+        enabled_o <= 1'b0;
     end
 end
 
@@ -107,6 +118,8 @@ typedef enum {
 verify_state_t verify_state;
 
 wire delay_complete;
+
+logic disconnect_complete;
 
 command_t command;
 command_t command_latched;
@@ -173,6 +186,12 @@ always @(posedge clk) begin
             S_EXEC_VERIFY: /* nothing */ ;
             default: state <= S_IDLE;
         endcase
+    end else if ((state == S_IDLE) && (timeout == 26'd0) && enabled_o) begin
+        state <= S_EXEC_DISCONNECT;
+    end else if ((state == S_EXEC_DISCONNECT) && disconnect_complete) begin
+        state <= S_DISCONNECTED;
+    end else if (state == S_DISCONNECTED) begin
+        state <= S_IDLE;
     end
 end
 
@@ -246,6 +265,18 @@ always @(posedge clk) begin
     end
 end
 
+logic [15:0] disconnect_a;
+logic [7:0] disconnect_d;
+
+typedef enum {
+    DS_HIGH,
+    DS_SETUP,
+    DS_LOW,
+    DS_DELAY,
+    DS_COMPLETE
+} disconnect_state_t;
+disconnect_state_t disconnect_state;
+
 `define SET_PIN(TARGET, IDX) \
         if (arg[IDX + 4]) TARGET <= arg[IDX];
 `define SET_TRISTATE_PIN(TARGET, IDX) \
@@ -255,7 +286,7 @@ end
         end
 
 always @(posedge clk) begin
-    if (reset) begin
+    if (reset | !enabled_o) begin
         cart_clk <= 1'b1;
         cart_wr <= 1'b1;
         cart_rd <= 1'b1;
@@ -309,6 +340,24 @@ always @(posedge clk) begin
                 VS_SET_RD_L: cart_rd <= 1'b0;
                 VS_SET_RD_H: cart_rd <= 1'b1;
                 default: /* nothing */ ;
+            endcase
+        end else if (state == S_EXEC_DISCONNECT) begin
+            cart_cs <= 1'b1;
+            unique case (disconnect_state)
+                DS_HIGH: begin
+                    cart_clk <= 1'b1;
+                    cart_wr <= 1'b1;
+                end
+                DS_SETUP: begin
+                    cart_a <= disconnect_a;
+                    cart_d_out <= disconnect_d;
+                    cart_data_dir_e <= 1'b0;
+                end
+                DS_LOW: begin
+                    cart_clk <= 1'b0;
+                    cart_wr <= 1'b0;
+                end
+                default: ;
             endcase
         end
     end
@@ -384,5 +433,108 @@ always @(posedge clk) begin
     end
 end
 assign delay_complete = delay_counter == 1'b1;
+
+localparam LAST_DISCONNECT_STEP = 3'd5;
+
+/* Holding RST low *should* reset a cartridge, but there are cartridges that ignore RST low.
+ * https://github.com/Lesserkuma/FlashGBX_LK_Firmware/issues/9
+ *
+ * This sequence should reset an MBC1, MBC3, or MBC5, using the same sequence of commands
+ * for all of them; in some cases they have slightly different but useful behaviors, on others,
+ * they're ignored
+ *
+ * Thanks to the gbdev.io pandocs: https://gbdev.io/pandocs/MBCs.html
+ *
+ * ROM_BANK_SEL_HIGH
+ * -----------------
+ *
+ * MBC1: same as BANK_SEL_LOW, but MBC1 treats 0x00 selection as 0x01
+ * MBC3: sets all 7 bits, but also treats 0x00 selection as 0x01
+ * MBC5: set high bits of bank
+ *
+ * ... so, setting to 0 always works :)
+ *
+ * RAM_BANK_SEL
+ * ------------
+ *
+ * MBC1:
+ *  - usually RAM bank select
+ *  - also ROM bank number for some MBC multi-cart
+ * MBC3: RAM bank select
+ *
+ * BANK_MODE_SEL
+ * -------------
+ *
+ * MBC1: 0 is 'simple' bank 0 ROM+SRAM (default), 1 is 'advanced' (0x4000 register is live)
+ */
+logic [2:0] disconnect_step;
+always @(*) begin
+    unique case (disconnect_step)
+        3'd0: begin
+            // RAM_DISABLE
+            disconnect_a = 16'h0000;
+            disconnect_d = 8'h00;
+        end
+        3'd1: begin
+            // ROM_BANK_SEL_LOW
+            disconnect_a = 16'h2000;
+            disconnect_d = 8'h01;
+        end
+        3'd2: begin
+            // ROM_BANK_SEL_HIGH
+            disconnect_a = 16'h3000;
+            disconnect_d = 8'h00;
+        end
+        3'd3: begin
+            // RAM_BANK_SEL
+            disconnect_a = 16'h4000;
+            disconnect_d = 8'h00;
+        end
+        3'd4: begin
+            // BANK_MODE_SEL
+            disconnect_a = 16'h6000;
+            disconnect_d = 8'h00;
+        end
+        default: begin
+            disconnect_a = 16'h0000;
+            disconnect_d = 8'h00;
+        end
+    endcase
+end
+
+logic [5:0] disconnect_delay;
+disconnect_state_t disconnect_state_next;
+always @(posedge clk) begin
+    if (state != S_EXEC_DISCONNECT) begin
+        disconnect_step <= 3'd0;
+        disconnect_state <= DS_HIGH;
+        disconnect_delay <= 6'd0;
+    end else if (disconnect_delay > 6'd0) begin
+        disconnect_delay <= disconnect_delay - 6'd1;
+    end else begin
+        disconnect_state <= DS_DELAY;
+        disconnect_state_next <= DS_DELAY;
+        unique case (disconnect_state)
+            DS_HIGH: begin
+                disconnect_delay <= 6'd30; // ~ 500ns
+                disconnect_state_next <= (disconnect_step == LAST_DISCONNECT_STEP) ? DS_COMPLETE : DS_SETUP;
+            end
+            DS_SETUP: begin
+                disconnect_delay <= 6'd12; // ~ 200ns
+                disconnect_state_next <= DS_LOW;
+            end
+            DS_LOW: begin
+                disconnect_delay <= 6'd30;
+                disconnect_state_next <= DS_HIGH;
+                disconnect_step <= disconnect_step + 3'd1;
+            end
+            DS_DELAY: begin
+                disconnect_state <= disconnect_state_next;
+            end
+            default: ;
+        endcase
+    end
+end
+assign disconnect_complete = disconnect_state == DS_COMPLETE;
 
 endmodule
