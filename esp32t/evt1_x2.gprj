@@ -77,8 +77,6 @@
         <File path="src/rtl/cartio/cartio_top.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/cartio/cartio_types.sv" type="file.verilog" enable="1"/>
         <File path="src/rtl/cartio/cartio_usb_simplex_fifo.sv" type="file.verilog" enable="1"/>
-        <File path="src/rtl/cartio/serial_mux/cartio_mcu_observer.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/cartio/serial_mux/cartio_serial_id.v" type="file.verilog" enable="1"/>
         <File path="src/top.v" type="file.verilog" enable="1"/>
         <File path="src/Gameboy_MiSTer/rtl/T80/T80_ALU.vhd" type="file.vhdl" enable="1"/>
         <File path="src/Gameboy_MiSTer/rtl/T80/T80_Pack.vhd" type="file.vhdl" enable="1"/>

@@ -286,6 +286,8 @@ module top #(parameter ISSIMU=0)
         .pClk(pClk),
         .reset(memrst),
 
+        .cartioEmuLockout(cartio_emu_lockout),
+
         .BTN_MENU(menuDisabled),
         .slideOutActive(slideOutActive),
 
@@ -344,7 +346,7 @@ module top #(parameter ISSIMU=0)
     aud_system_top u_aud_system_top(
         .gClk(gClk),
         .hClk(hClk),
-        .reset_n(~memrst),
+        .reset_n(~(memrst | cartio_emu_lockout)),
         .left(left),
         .right(right),
 
@@ -383,12 +385,27 @@ module top #(parameter ISSIMU=0)
         else if (!xclk_lock_o) lock_o_count <= lock_o_count + 1'd1;
     end
 
-    reg cartio_emu_lockout;
+    // Trigger a brief full reset every time we enter or exit CartIO mode
+    logic cartio_emu_lockout;
+    logic cartio_emu_lockout_d;
+    always @(posedge xClk) cartio_emu_lockout_d <= cartio_emu_lockout;
+    logic [7:0] cartio_emu_lockout_reset;
+    always @(posedge xClk) begin
+        if (
+            ({cartio_emu_lockout_d, cartio_emu_lockout} == 2'b10)
+            || ({cartio_emu_lockout_d, cartio_emu_lockout} == 2'b01)
+            ) begin
+            cartio_emu_lockout_reset <= 8'hFF;
+        end else if (cartio_emu_lockout_reset > 8'd0) begin
+            cartio_emu_lockout_reset <= cartio_emu_lockout_reset - 8'd1;
+        end
+    end
+
     // CART_DET = 0 (no cart inserted)
     always@(posedge xClk)
         memrst <= CART_DET_sr[17:2] == 16'h7FFF ||
                   CART_DET_sr[17:2] == 16'h8000 ||
-                  cartio_emu_lockout ||
+                  (|cartio_emu_lockout_reset) ||
                   ~xclk_lock_o;
 
     mem_system_top #(ISSIMU)
@@ -581,7 +598,7 @@ module top #(parameter ISSIMU=0)
         .CART_D_OUT(emu_cart_d_out),
         .CART_DATA_DIR_E(emu_cart_data_dir_e),
         .CART_RD(emu_cart_rd),
-        .CART_RST_IN(CART_RST),
+        .CART_RST_IN(CART_RST | cartio_emu_lockout),
         .CART_WR(emu_cart_wr),
 
         .IR_RX(IR_RX),
@@ -724,6 +741,7 @@ module top #(parameter ISSIMU=0)
             else
                 usbrst <= 1'd0;
 
+    wire       CARTIO_RESET;
     wire       CARTIO_ENABLED;
     wire       CARTIO_TX_FLUSH;
     wire       CARTIO_TX_DVAL;
@@ -759,7 +777,8 @@ module top #(parameter ISSIMU=0)
         .usb_pullup_en_o(usb_pullup_en_o),
         .usb_term_dp_io(usb_term_dp_io),
         .usb_term_dn_io(usb_term_dn_io),
-        .cartio_enabled(CARTIO_ENABLED),
+
+        .cartio_reset(CARTIO_RESET),
         .cartio_tx_flush(CARTIO_TX_FLUSH),
         .cartio_tx_dval(CARTIO_TX_DVAL),
         .cartio_tx_data(CARTIO_TX_DATA),
@@ -771,8 +790,8 @@ module top #(parameter ISSIMU=0)
     always @(posedge xClk) begin
         cartio_enabled_d <= CARTIO_ENABLED;
         cartio_enabled <= cartio_enabled_d;
-        cartio_emu_lockout <= cartio_enabled_d;
     end
+    assign cartio_emu_lockout = cartio_enabled;
 
     wire [13:0] hAdcValue_r1;
     wire hAdcReq_ext;
@@ -873,7 +892,8 @@ module top #(parameter ISSIMU=0)
     // Cartridge IO for use with FlashGBX
     cartio_top u_cartio(
         .clk            (PHY_CLKOUT),
-        .reset          (!CARTIO_ENABLED),
+        .reset          (CARTIO_RESET),
+        .enabled_o      (CARTIO_ENABLED),
         .rx_ready       (CARTIO_RX_RDY),
         .rx_valid       (CARTIO_RX_DVAL),
         .rx_data        (CARTIO_RX_DATA),

@@ -25,7 +25,9 @@ typedef enum logic [7:0] {
     CMD_VERIFY_STATUS_REGISTER = 8'd12, // arg ignored
     CMD_SET_STATUS_REGISTER_MASK = 8'd13,
     CMD_SET_STATUS_REGISTER_VALUE = 8'd14,
-    CMD_GET_STATE_BITS = 8'd15
+    CMD_GET_STATE_BITS = 8'd15,
+
+    CMD_GET_FW_INFO = 8'd16
 } command_t;
 
 
@@ -36,6 +38,7 @@ function command_produces_tx (command_t cmd);
             CMD_PING,
             CMD_VERIFY_DATA,
             CMD_VERIFY_STATUS_REGISTER,
+            CMD_GET_FW_INFO,
             CMD_GET_STATE_BITS: return 1'b1;
             default: return 1'b0;
         endcase

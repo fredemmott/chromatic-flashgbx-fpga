@@ -3,7 +3,7 @@ import cartio_types::*;
 module cartio_top(
     input  wire        clk,
     input  wire        reset,
-
+    output logic       enabled_o,
 
     output reg         rx_ready,
     input  wire        rx_valid,
@@ -27,6 +27,18 @@ module cartio_top(
     output tristate_pin_t cart_rst,
     output tristate_pin_t cart_audio
 );
+
+logic [25:0] timeout;
+always @(posedge clk) begin
+    if (reset) begin
+        timeout <= 26'd0;
+    end else if (rx_valid) begin
+        timeout <= 26'd60_000_000;
+    end else if (timeout > 26'd0) begin
+        timeout <= timeout - 26'd1;
+    end
+end
+assign enabled_o = (timeout != 26'd0);
 
 logic [7:0] fifo [2047:0];
 logic [10:0] fifo_read_p;
@@ -304,6 +316,32 @@ end
 
 assign cart_enabled = 1'b1;
 
+localparam FW_INFO_BLOB = {
+    // Size of this response, in bytes
+    8'd0,
+
+    // Our version timestamp - BCD
+    /*  YYYY_MM_DD */
+    32'h2026_09_25,
+
+    // If we do multiple builds on the same day... __NOT__ BCD!
+    8'd00, // Revision
+
+    // Upstream (ModRetro) version number - __NOT__ BCD
+    8'd18, 8'd08
+};
+localparam FW_INFO_LEN = $bits(FW_INFO_BLOB) / 8;
+localparam FW_INFO_ADDR_WIDTH = $clog2(FW_INFO_LEN);
+reg [7:0] fw_info[0:FW_INFO_LEN- 1];
+
+integer i;
+initial begin
+    fw_info[0] = 8'(FW_INFO_LEN);
+    for (i = 1; i < FW_INFO_LEN; i = i + 1) begin
+        fw_info[i] = FW_INFO_BLOB[(FW_INFO_LEN - 1 - i)*8 +: 8];
+    end
+end
+
 always @(posedge clk) begin
     tx_valid <= 1'b0;
     tx_data <= 8'd0;
@@ -326,6 +364,10 @@ always @(posedge clk) begin
                 tx_valid <= 1'b1;
                 tx_data <= 8'd0;
                 tx_data[STATE_BIT_CART_PRESENT] <= cart_det;
+            end
+            CMD_GET_FW_INFO: begin
+                tx_valid <= arg < FW_INFO_LEN;
+                tx_data <= (arg < FW_INFO_LEN) ? fw_info[arg] : 8'd0;
             end
             default: /* nop */ ;
         endcase

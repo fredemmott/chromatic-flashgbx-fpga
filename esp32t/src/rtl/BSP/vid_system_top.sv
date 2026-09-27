@@ -7,6 +7,8 @@ module vid_system_top #(parameter ISSIMU=0)
     input               pClk,
     input               reset,
 
+    input cartioEmuLockout,
+
     input               BTN_MENU,
     output reg          slideOutActive,
 
@@ -132,8 +134,34 @@ module vid_system_top #(parameter ISSIMU=0)
     wire [5:0]  game_r  =   frameBlendEnable ? sum_r[6:1] : {gb_lcd_data[4:0],1'b0};
     wire [5:0]  game_g  =   frameBlendEnable ? sum_g[6:1] : {gb_lcd_data[9:5],1'b0};
     wire [5:0]  game_b  =   frameBlendEnable ? sum_b[6:1] : {gb_lcd_data[14:10],1'b0};
-    
-    wire [17:0] psel = {game_b,game_g,game_r};
+
+    // When locked out, keep the backlight on to avoid reinit issues, but put on a screensaver
+    // Checkboard, alternating A/B, going through greyscale, r, g, b
+    localparam [17:0] LOCKOUT_A = { 6'd40, 6'd40, 6'd40 };
+    localparam [17:0] LOCKOUT_B = { 6'd20, 6'd20, 6'd20 };
+
+    reg [26:0] lockout_counter;
+    always @(posedge hClk) begin
+        if (~cartioEmuLockout) begin
+            lockout_counter <= 27'd0;
+        end else begin
+            lockout_counter <= lockout_counter + 27'd1;
+        end
+    end
+    wire lockout_alt = lockout_counter[24]; // toggle every 1s
+    reg [17:0] lockout_mask;
+    always @(*) begin
+        unique case (lockout_counter[26:25])
+            2'b00: lockout_mask = {~6'd0,~6'd0,~6'd0 };
+            2'b01: lockout_mask = {~6'd0, 6'd0, 6'd0 };
+            2'b10: lockout_mask = { 6'd0,~6'd0, 6'd0 };
+            2'b11: lockout_mask = { 6'd0, 6'd0,~6'd0 };
+        endcase
+    end
+
+    wire [17:0] psel = cartioEmuLockout
+        ? (((screenX[2] ^ screenY[2] ^ lockout_alt) ? LOCKOUT_A : LOCKOUT_B) & lockout_mask) // checkboard fill
+        : {game_b,game_g,game_r};
 
     // OSD and overlay
     reg [17:0] overlayColor;
