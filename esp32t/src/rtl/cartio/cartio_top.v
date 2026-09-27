@@ -180,6 +180,7 @@ always @(posedge clk) begin
                     CMD_VERIFY_STATUS_REGISTER: state <= S_EXEC_VERIFY;
                     CMD_DELAY: state <= S_EXEC_DELAY;
                     CMD_FLUSH: tx_flush <= 1'b1;
+                    CMD_BYE: state <= S_EXEC_DISCONNECT;
                     default: /* nothing to do */ ;
                 endcase
             end
@@ -371,7 +372,7 @@ localparam FW_INFO_BLOB = {
 
     // Our version timestamp - BCD
     /*  YYYY_MM_DD */
-    32'h2026_09_25,
+    32'h2026_09_27,
 
     // If we do multiple builds on the same day... __NOT__ BCD!
     8'd00, // Revision

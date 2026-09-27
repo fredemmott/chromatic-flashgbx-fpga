@@ -27,7 +27,8 @@ typedef enum logic [7:0] {
     CMD_SET_STATUS_REGISTER_VALUE = 8'd14,
     CMD_GET_STATE_BITS = 8'd15,
 
-    CMD_GET_FW_INFO = 8'd16
+    CMD_GET_FW_INFO = 8'd16,
+    CMD_BYE = 8'd17
 } command_t;
 
 
