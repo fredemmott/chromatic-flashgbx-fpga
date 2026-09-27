@@ -778,7 +778,6 @@ module top #(parameter ISSIMU=0)
         .usb_term_dp_io(usb_term_dp_io),
         .usb_term_dn_io(usb_term_dn_io),
 
-        .cartio_reset(CARTIO_RESET),
         .cartio_tx_flush(CARTIO_TX_FLUSH),
         .cartio_tx_dval(CARTIO_TX_DVAL),
         .cartio_tx_data(CARTIO_TX_DATA),
@@ -892,7 +891,7 @@ module top #(parameter ISSIMU=0)
     // Cartridge IO for use with FlashGBX
     cartio_top u_cartio(
         .clk            (PHY_CLKOUT),
-        .reset          (CARTIO_RESET),
+        .reset          (~lock_o),
         .enabled_o      (CARTIO_ENABLED),
         .rx_ready       (CARTIO_RX_RDY),
         .rx_valid       (CARTIO_RX_DVAL),

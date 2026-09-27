@@ -39,8 +39,6 @@ module usbuvcuart_top(
     inout               usb_term_dp_io,
     inout               usb_term_dn_io,
 
-    output reg cartio_reset,
-
     input               cartio_tx_flush,
     input               cartio_tx_dval,
     input[7:0]          cartio_tx_data,
@@ -1159,10 +1157,6 @@ module usbuvcuart_top(
         end else if (!cartio_txact) begin
             cartio_txdat_len <= (cartio_txfifo_count >= 13'd512) ? 12'd512 : cartio_txfifo_count[11:0];
         end
-    end
-
-    always @(posedge pClk) begin
-        cartio_reset <= (RESET_IN | usb_busreset);
     end
 
     //==============================================================
