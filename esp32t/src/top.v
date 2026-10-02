@@ -577,7 +577,7 @@ module top #(
     cartridge_interface u_cartridge_interface (
         .clk(hClk),
         .reset_n(cartridge_reset_sync[1]),
-        .cartridge_enable(~(POWER_ON_FPGA | cartio_hclk_negedge)),
+        .cartridge_enable(cartio_enabled ? cartio_cart_enabled : ~(POWER_ON_FPGA | cartio_hclk_negedge)),
         .version_detect(VERSION_DET),
         .cartridge_ready(cartridge_ready),
         .core_a(cartio_enabled ? cartio_cart_a : core_cart_a),
