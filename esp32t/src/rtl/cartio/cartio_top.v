@@ -5,6 +5,8 @@ module cartio_top(
     input  wire        reset,
     output reg         enabled_o,
 
+    input  wire [1:0]  pcb_version,
+
     output reg         rx_ready,
     input  wire        rx_valid,
     input  wire [7:0]  rx_data,
@@ -387,15 +389,18 @@ localparam FW_INFO_BLOB = {
     8'(fpga_fw_version::MAJOR),
     8'(fpga_fw_version::MINOR)
 };
-localparam FW_INFO_LEN = $bits(FW_INFO_BLOB) / 8;
-localparam FW_INFO_ADDR_WIDTH = $clog2(FW_INFO_LEN);
-reg [7:0] fw_info[0:FW_INFO_LEN- 1];
+localparam FW_INFO_ROM_LEN = $bits(FW_INFO_BLOB) / 8;
+localparam FW_INFO_ROM_ADDR_WIDTH = $clog2(FW_INFO_ROM_LEN);
+reg [7:0] fw_info_rom[0:FW_INFO_ROM_LEN- 1];
+
+localparam FW_INFO_PCB_VERSION_IDX = FW_INFO_ROM_LEN;
+localparam FW_INFO_LEN = FW_INFO_PCB_VERSION_IDX + 1;
 
 integer i;
 initial begin
-    fw_info[0] = 8'(FW_INFO_LEN);
-    for (i = 1; i < FW_INFO_LEN; i = i + 1) begin
-        fw_info[i] = FW_INFO_BLOB[(FW_INFO_LEN - 1 - i)*8 +: 8];
+    fw_info_rom[0] = 8'(FW_INFO_LEN);
+    for (i = 1; i < FW_INFO_ROM_LEN; i = i + 1) begin
+        fw_info_rom[i] = FW_INFO_BLOB[(FW_INFO_ROM_LEN - 1 - i)*8 +: 8];
     end
 end
 
@@ -426,7 +431,12 @@ always @(posedge clk) begin
             end
             CMD_GET_FW_INFO: begin
                 tx_valid <= arg < FW_INFO_LEN;
-                tx_data <= (arg < FW_INFO_LEN) ? fw_info[arg] : 8'd0;
+                tx_data <= 8'd0;
+                if (arg < FW_INFO_ROM_LEN) begin
+                    tx_data <= fw_info_rom[arg];
+                end else if (arg == FW_INFO_PCB_VERSION_IDX) begin
+                    tx_data <= { 6'd0, pcb_version };
+                end
             end
             default: /* nop */ ;
         endcase

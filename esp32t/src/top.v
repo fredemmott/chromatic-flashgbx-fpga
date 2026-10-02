@@ -942,6 +942,8 @@ module top #(
         .reset          (~lock_o),
         .enabled_o      (CARTIO_ENABLED),
 
+        .pcb_version    ({VERSION_DET2, VERSION_DET}), // big-endian
+
         .rx_ready       (CARTIO_RX_RDY),
         .rx_valid       (CARTIO_RX_DVAL),
         .rx_data        (CARTIO_RX_DATA),
