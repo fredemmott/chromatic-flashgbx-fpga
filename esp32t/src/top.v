@@ -856,6 +856,10 @@ module top #(
    wire powered_by_lipo;
    assign CHG_EN_FPGA = 1'b1; //powered_by_lipo;
 
+    wire monitor_LED_Green;
+    wire monitor_LED_Red;
+    wire monitor_LED_Yellow;
+    wire monitor_LED_White;
 
     system_monitor u_system_monitor(
         .appear_off (appear_off),
@@ -888,10 +892,10 @@ module top #(
         .gHalfSecondEna(halfSecondEna),
         .debug_system(debug_system),
         .low_battery(low_battery),
-        .LED_Green(LED_Green),
-        .LED_Red(LED_Red),
-        .LED_Yellow(LED_Yellow),
-        .LED_White(LED_White),
+        .LED_Green(monitor_LED_Green),
+        .LED_Red(monitor_LED_Red),
+        .LED_Yellow(monitor_LED_Yellow),
+        .LED_White(monitor_LED_White),
         .system_control(system_control),
         .paletteBGIn(paletteBGIn),
         .paletteOBJ0In(paletteOBJ0In),
@@ -908,6 +912,11 @@ module top #(
         .VERSION_DET (VERSION_DET),
         .POWERED_BY_LIPO (powered_by_lipo)
     );
+
+    assign LED_Green = cartio_enabled ? (~CART_PWR_EN) : monitor_LED_Green;
+    assign LED_Red = cartio_enabled ? CART_PWR_EN : monitor_LED_Red;
+    assign LED_Yellow = cartio_enabled ? 1'b0 : monitor_LED_Yellow;
+    assign LED_White = cartio_enabled ? 1'b0 : monitor_LED_White;
 
     UART2
     #(.CLK_FREQ(30'd8388608))
