@@ -34,20 +34,6 @@ typedef enum logic [7:0] {
 } command_t;
 
 
-function command_produces_tx (command_t cmd);
-    begin
-        unique case(cmd)
-            CMD_GET_DATA,
-            CMD_PING,
-            CMD_VERIFY_DATA,
-            CMD_VERIFY_STATUS_REGISTER,
-            CMD_GET_FW_INFO,
-            CMD_GET_STATE_BITS: return 1'b1;
-            default: return 1'b0;
-        endcase
-    end
-endfunction
-
 typedef struct {
     logic oe;
     logic value;

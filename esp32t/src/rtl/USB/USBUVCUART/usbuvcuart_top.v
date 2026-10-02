@@ -746,7 +746,6 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
     // (command, arg) repeated; we can match command with a single-bit counter;
     logic cartio_rx_count;
     wire cartio_rx_command = cartio_rxval && (cartio_rx_count == 1'b0);
-    wire cartio_rx_command_produces_tx = cartio_rx_command && cartio_types::command_produces_tx(cartio_types::command_t'(usb_rxdat));
 
     always @(posedge pClk) begin
         cartio_rx_count <= cartio_rx_count;
