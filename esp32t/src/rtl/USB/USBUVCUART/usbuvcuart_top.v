@@ -244,9 +244,6 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
     wire uart_rxval = (endpt_sel == EP_UART) ? usb_rxval : 0;
     wire cartio_rxval = (endpt_sel == EP_CARTIO) ? usb_rxval : 0;
 
-    wire [7:0] desc_index;
-    wire [7:0] desc_type;
-
     logic [15:0] desc_strmux_addr;
     logic [15:0] desc_strmux_len;
 
@@ -359,8 +356,8 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
             ,.desc_bos_len_i(16'd0)
             ,.desc_hidrpt_addr_i(16'd0)
             ,.desc_hidrpt_len_i(16'd0)
-            ,.desc_index_o(desc_index)
-            ,.desc_type_o(desc_type)
+            ,.desc_index_o()
+            ,.desc_type_o()
 
             ,.utmi_dataout_o        (PHY_DATAOUT       )
             ,.utmi_txvalid_o        (PHY_TXVALID       )
@@ -377,7 +374,7 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
          );
 
     always @(*) begin
-        if ({desc_type, desc_index} == 16'h0305) begin
+        if (bmRequestType == 8'h80 && bRequest == 8'h06 && wValue == 16'h0305) begin
            desc_strmux_addr = DESC_STRCARTIO_ADDR;
            desc_strmux_len = DESC_STRCARTIO_LEN;
         end else begin
