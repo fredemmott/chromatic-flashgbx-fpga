@@ -13,6 +13,8 @@ module cartio_top(
     output reg  [7:0]  tx_data,
 
     output reg         cart_enabled,
+    input wire         cart_powered,
+    input wire         cart_ready,
 
     input  wire        cart_det,
     output reg  [15:0] cart_a,
@@ -419,6 +421,8 @@ always @(posedge clk) begin
                 tx_valid <= 1'b1;
                 tx_data <= 8'd0;
                 tx_data[STATE_BIT_CART_PRESENT] <= cart_det;
+                tx_data[STATE_BIT_CART_POWERED] <= cart_powered;
+                tx_data[STATE_BIT_CART_READY]   <= cart_ready;
             end
             CMD_GET_FW_INFO: begin
                 tx_valid <= arg < FW_INFO_LEN;

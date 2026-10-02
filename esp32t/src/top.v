@@ -950,6 +950,8 @@ module top #(
         .tx_data        (CARTIO_TX_DATA),
 
         .cart_enabled   (cartio_cart_enabled),
+        .cart_powered   (CART_PWR_EN),
+        .cart_ready     (cartridge_ready),
 
         .cart_det       (CART_DET),
         .cart_a         (cartio_cart_a),
