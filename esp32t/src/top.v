@@ -913,10 +913,11 @@ module top #(
         .POWERED_BY_LIPO (powered_by_lipo)
     );
 
+    wire cartio_activity_led;
     assign LED_Green = cartio_enabled ? (~CART_PWR_EN) : monitor_LED_Green;
     assign LED_Red = cartio_enabled ? CART_PWR_EN : monitor_LED_Red;
     assign LED_Yellow = cartio_enabled ? 1'b0 : monitor_LED_Yellow;
-    assign LED_White = cartio_enabled ? 1'b0 : monitor_LED_White;
+    assign LED_White = cartio_enabled ? cartio_activity_led : monitor_LED_White;
 
     UART2
     #(.CLK_FREQ(30'd8388608))
@@ -950,6 +951,8 @@ module top #(
         .clk            (PHY_CLKOUT),
         .reset          (~lock_o),
         .enabled_o      (CARTIO_ENABLED),
+
+        .activity_led   (cartio_activity_led),
 
         .pcb_version    ({VERSION_DET2, VERSION_DET}), // big-endian
 

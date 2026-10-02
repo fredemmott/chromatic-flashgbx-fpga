@@ -44,6 +44,7 @@ typedef struct {
 localparam STATE_BIT_CART_PRESENT = 0;
 localparam STATE_BIT_CART_POWERED = 1;
 localparam STATE_BIT_CART_READY = 2;
+localparam STATE_BIT_ACTIVITY_LED = 3;
 
 localparam SET_PINS_A_CLK = 0;
 localparam SET_PINS_A_WR = 1;

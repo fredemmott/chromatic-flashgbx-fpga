@@ -5,6 +5,8 @@ module cartio_top(
     input  wire        reset,
     output reg         enabled_o,
 
+    output reg         activity_led,
+
     input  wire [1:0]  pcb_version,
 
     output reg         rx_ready,
@@ -444,6 +446,7 @@ always @(posedge clk) begin
                 tx_data[STATE_BIT_CART_PRESENT] <= cart_det;
                 tx_data[STATE_BIT_CART_POWERED] <= cart_powered;
                 tx_data[STATE_BIT_CART_READY]   <= cart_ready;
+                tx_data[STATE_BIT_ACTIVITY_LED] <= activity_led;
             end
             CMD_GET_FW_INFO: begin
                 tx_valid <= arg < FW_INFO_LEN;
@@ -456,6 +459,16 @@ always @(posedge clk) begin
             end
             default: /* nop */ ;
         endcase
+    end
+end
+
+always @(posedge clk) begin
+    if (reset || !enabled_o) begin
+        activity_led <= 1'b0;
+    end else if ((command == CMD_SET_STATE_BITS) && arg[STATE_BIT_ACTIVITY_LED + 4]) begin
+        activity_led <= arg[STATE_BIT_ACTIVITY_LED];
+    end else begin
+        activity_led <= activity_led;
     end
 end
 
