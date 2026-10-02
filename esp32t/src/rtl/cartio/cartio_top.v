@@ -372,7 +372,18 @@ always @(posedge clk) begin
     end
 end
 
-assign cart_enabled = 1'b1;
+always @(posedge clk) begin
+    if (reset || !enabled_o) begin
+        cart_enabled <= 1'b0;
+    end else begin
+        cart_enabled <= cart_enabled;
+        if (command == CMD_SET_STATE_BITS) begin
+            if (arg[STATE_BIT_CART_POWERED + 4]) begin
+                cart_enabled <= arg[STATE_BIT_CART_POWERED];
+            end
+        end
+    end
+end
 
 localparam FW_INFO_BLOB = {
     // Size of this response, in bytes
