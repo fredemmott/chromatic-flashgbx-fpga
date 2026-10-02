@@ -27,6 +27,10 @@ SOFTWARE.
 `include "uac_defs.v"
 `include "uart_defs.v"
 
+`define CARTIO_STR_IDX 5
+`define CARTIO_IFACE 6
+`define CARTIO_ENDPOINT 6
+
 module usb_desc #(
         parameter DEFAULT_SCALE_2X = 1'b1,
         // Vendor ID to report in device descriptor.
@@ -73,8 +77,14 @@ module usb_desc #(
         output [15:0] o_desc_strproduct_len,
         output [15:0] o_desc_strserial_addr,
         output [15:0] o_desc_strserial_len,
+        output [15:0] o_desc_strcartio_addr,
+        output [15:0] o_desc_strcartio_len,
         output       o_descrom_have_strings
 );
+    localparam CARTIOSTR = "Cartridge IO (fredemmott)";
+    localparam CARTIOSTR_LEN = $bits(CARTIOSTR) / 8;
+
+
     // Truncate descriptor data to keep only the necessary pieces;
     // either just the full-speed stuff, || full-speed plus high-speed,
     // || full-speed plus high-speed plus string descriptors.
@@ -130,8 +140,12 @@ module usb_desc #(
     localparam CDC_DATA_OUT_EP_LEN = 7;
 
     localparam  DESC_CDCIF_LEN        = CDC_IAD_LEN + CDC_CTRL_IF_LEN + CDC_HEADER_LEN + CDC_UNION_LEN + CDC_CALL_MGMT_LEN + CDC_ACM_LEN + CDC_NOTIFY_EP_LEN + CDC_CLASS_DATA_LEN + CDC_DATA_IN_EP_LEN + CDC_DATA_OUT_EP_LEN;
+
+    localparam  DESC_CARTIO_ADDR   = DESC_CDCIF_ADDR + DESC_CDCIF_LEN;
+    localparam  DESC_CARTIO_LEN    = 23;
+
     localparam DESC_MSOS_LEN = 0;
-    localparam  DESC_FSCFG_LEN        = DESC_UAC_LEN + 226 + DESC_CDCIF_LEN + DESC_MSOS_LEN;
+    localparam  DESC_FSCFG_LEN        = DESC_UAC_LEN + 226 + DESC_CDCIF_LEN + DESC_CARTIO_LEN + DESC_MSOS_LEN;
     localparam  DESC_HSCFG_ADDR       = DESC_FSCFG_ADDR;
     localparam  DESC_HSCFG_LEN        = DESC_FSCFG_LEN;
     localparam  DESC_OSCFG_ADDR       = DESC_HSCFG_ADDR + DESC_HSCFG_LEN;
@@ -143,8 +157,9 @@ module usb_desc #(
     localparam  DESC_STRPRODUCT_LEN   = 2 + 2*PRODUCTSTR_LEN;
     localparam  DESC_STRSERIAL_ADDR   = DESC_STRPRODUCT_ADDR + DESC_STRPRODUCT_LEN;
     localparam  DESC_STRSERIAL_LEN    = 2 + 2*SERIALSTR_LEN;
-    localparam  DESC_END_ADDR         = DESC_STRSERIAL_ADDR + DESC_STRSERIAL_LEN;
-
+    localparam  DESC_STRCARTIO_ADDR = DESC_STRSERIAL_ADDR + DESC_STRSERIAL_LEN;
+    localparam  DESC_STRCARTIO_LEN  = 2 + 2*CARTIOSTR_LEN;
+    localparam  DESC_END_ADDR         = DESC_STRCARTIO_ADDR + DESC_STRCARTIO_LEN;
 
     assign  o_desc_dev_addr        = DESC_DEV_ADDR        ;
     assign  o_desc_dev_len         = DESC_DEV_LEN         ;
@@ -162,7 +177,8 @@ module usb_desc #(
     assign  o_desc_strproduct_len  = DESC_STRPRODUCT_LEN  ;
     assign  o_desc_strserial_addr  = DESC_STRSERIAL_ADDR  ;
     assign  o_desc_strserial_len   = DESC_STRSERIAL_LEN   ;
-
+    assign  o_desc_strcartio_addr  = DESC_STRCARTIO_ADDR;
+    assign  o_desc_strcartio_len   = DESC_STRCARTIO_LEN ;
 
     // Truncate descriptor data to keep only the necessary pieces;
     // either just the full-speed stuff, || full-speed plus high-speed,
@@ -222,7 +238,7 @@ module usb_desc #(
         descrom[DESC_FSCFG_ADDR + 1] <= `USB_DESCTYPE_CONFIGURATION;// 1 bDescriptorType = configuration descriptor
         descrom[DESC_FSCFG_ADDR + 2] <= DESC_FSCFG_LEN[7:0];// 2 wTotalLength L
         descrom[DESC_FSCFG_ADDR + 3] <= DESC_FSCFG_LEN[15:8];// 3 wTotalLength H
-        descrom[DESC_FSCFG_ADDR + 4] <= 8'h06;// 4 bNumInterfaces = 6
+        descrom[DESC_FSCFG_ADDR + 4] <= 8'h07;// 4 bNumInterfaces = 7
         descrom[DESC_FSCFG_ADDR + 5] <= 8'h01;// 5 bConfigurationValue = 1
         descrom[DESC_FSCFG_ADDR + 6] <= 8'h00;// 6 iConfiguration - index of string
         descrom[DESC_FSCFG_ADDR + 7] <= (SELFPOWERED)? 8'hc0 : 8'h80; // 7 bmAttributes
@@ -698,6 +714,36 @@ module usb_desc #(
         descrom[DESC_CDCIF_ADDR + CDC_DATA_OUT_EP_BASE + 6] <= 8'h00;// bInterval = 0 ms
 	end
 
+        //---------------- 4th Interface: Vendor-Specific Stream Class ----------------
+        // Interface Descriptor
+        descrom[DESC_CARTIO_ADDR + 0] <= 8'h09; // bLength
+        descrom[DESC_CARTIO_ADDR + 1] <= 8'h04; // bDescriptorType = Interface
+        descrom[DESC_CARTIO_ADDR + 2] <= 8'h06; // bInterfaceNumber
+        descrom[DESC_CARTIO_ADDR + 3] <= 8'h00; // bAlternateSetting = 0
+        descrom[DESC_CARTIO_ADDR + 4] <= 8'h02; // bNumEndpoints = 2 (Bulk IN/OUT)
+        descrom[DESC_CARTIO_ADDR + 5] <= 8'hFF; // bInterfaceClass = Vendor-Specific
+        descrom[DESC_CARTIO_ADDR + 6] <= 8'hFF; // bInterfaceSubClass = Vendor-Specific
+        descrom[DESC_CARTIO_ADDR + 7] <= 8'hFF; // bInterfaceProtocol = Vendor-Specific
+        descrom[DESC_CARTIO_ADDR + 8] <= `CARTIO_STR_IDX;
+
+        // Bulk IN Endpoint Descriptor (Endpoint 6 IN)
+        descrom[DESC_CARTIO_ADDR + 9 + 0] <= 8'h07; // bLength
+        descrom[DESC_CARTIO_ADDR + 9 + 1] <= 8'h05; // bDescriptorType = Endpoint
+        descrom[DESC_CARTIO_ADDR + 9 + 2] <= 8'(8'h80 | `CARTIO_ENDPOINT);
+        descrom[DESC_CARTIO_ADDR + 9 + 3] <= 8'h02; // bmAttributes = Bulk
+        descrom[DESC_CARTIO_ADDR + 9 + 4] <= 8'h00; // wMaxPacketSize = 512 LSB
+        descrom[DESC_CARTIO_ADDR + 9 + 5] <= 8'h02; // wMaxPacketSize = 512 MSB
+        descrom[DESC_CARTIO_ADDR + 9 + 6] <= 8'h00; // bInterval = 0 ms
+
+        // Bulk OUT Endpoint Descriptor (Endpoint 6 OUT)
+        descrom[DESC_CARTIO_ADDR + 16 + 0] <= 8'h07; // bLength
+        descrom[DESC_CARTIO_ADDR + 16 + 1] <= 8'h05; // bDescriptorType = Endpoint
+        descrom[DESC_CARTIO_ADDR + 16 + 2] <= 8'(`CARTIO_ENDPOINT);
+        descrom[DESC_CARTIO_ADDR + 16 + 3] <= 8'h02; // bmAttributes = Bulk
+        descrom[DESC_CARTIO_ADDR + 16 + 4] <= 8'h00; // wMaxPacketSize = 512 LSB
+        descrom[DESC_CARTIO_ADDR + 16 + 5] <= 8'h02; // wMaxPacketSize = 512 MSB
+        descrom[DESC_CARTIO_ADDR + 16 + 6] <= 8'h00; // bInterval = 0 ms
+
         //Other Speed Addr
         descrom[DESC_OSCFG_ADDR + 0]  <= 8'h07;//
         descrom[DESC_OSCFG_ADDR + 1]  <= 8'h00;// 12 bytes padding
@@ -743,6 +789,14 @@ module usb_desc #(
                     descrom[DESC_STRSERIAL_ADDR + 2*i + 2][z] <= SERIALSTR[(SERIALSTR_LEN - 1 - i)*8+z];
                 end
                 descrom[DESC_STRSERIAL_ADDR + 2*i + 3] <= 8'h00;
+            end
+            descrom[DESC_STRCARTIO_ADDR + 0] <= 2 + 2*CARTIOSTR_LEN;
+            descrom[DESC_STRCARTIO_ADDR + 1] <= 8'h03;
+            for(i = 0; i < CARTIOSTR_LEN; i = i + 1) begin
+                for(z = 0; z < 8; z = z + 1) begin
+                    descrom[DESC_STRCARTIO_ADDR + 2*i + 2][z] <= CARTIOSTR[(CARTIOSTR_LEN - 1 - i)*8+z];
+                end
+                descrom[DESC_STRCARTIO_ADDR + 2*i + 3] <= 8'h00;
             end
         end
       end

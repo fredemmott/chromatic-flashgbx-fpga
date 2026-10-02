@@ -38,7 +38,15 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
     input               usb_rxdn_i,
     output              usb_pullup_en_o,
     inout               usb_term_dp_io,
-    inout               usb_term_dn_io
+    inout               usb_term_dn_io,
+
+    input               cartio_tx_flush,
+    input               cartio_tx_dval,
+    input[7:0]          cartio_tx_data,
+
+    input               cartio_rx_rdy,
+    output reg          cartio_rx_dval,
+    output reg [7:0]    cartio_rx_data
 );
 
 
@@ -106,6 +114,8 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
     wire [15:0] DESC_STRPRODUCT_LEN ;
     wire [15:0] DESC_STRSERIAL_ADDR ;
     wire [15:0] DESC_STRSERIAL_LEN  ;
+    wire [15:0] DESC_STRCARTIO_ADDR;
+    wire [15:0] DESC_STRCARTIO_LEN ;
     wire        DESCROM_HAVE_STRINGS;
     wire        RESET_IN;
 
@@ -152,10 +162,15 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
     reg [11:0]  audio_txdat_len;
     reg         audio_txcork;
 
+    logic [7:0]  cartio_txdat;
+    logic [11:0] cartio_txdat_len;
+    logic        cartio_txcork;
+
     localparam EP_CTRL = 4'd0;
     localparam EP_VC = 4'd1;
     localparam EP_VS = 4'd2;
     localparam EP_UART = 4'd3;
+    localparam EP_CARTIO = 4'd6;
     localparam EP_UAC = {`AUDIO_DATA_EP_NUM}[3:0];
 
     wire        cuart_txval;
@@ -184,6 +199,7 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
     assign usb_txdat = (endpt_sel == EP_CTRL) ? endpt0_dat[7:0] :
                        (endpt_sel == EP_VS) ? video_txdat  :
                        (endpt_sel == EP_UAC) ? audio_txdat :
+                       (endpt_sel == EP_CARTIO) ? cartio_txdat :
                        uart_txdat;
     /* only valid for ep0 */
     assign endpt0_send = cuart_txval | cuvc_txval | cuac_txval;
@@ -192,32 +208,47 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
     assign usb_txdat_len = (endpt_sel == EP_CTRL) ? endpt0_txlen :
                            (endpt_sel == EP_VS) ? video_txdat_len :
                            (endpt_sel == EP_UART) ? uart_txdat_len :
+                           (endpt_sel == EP_CARTIO) ? cartio_txdat_len :
                            (endpt_sel == EP_UAC) ? audio_txdat_len :
                            12'hFAE;
 
     assign usb_txcork = (endpt_sel == EP_CTRL) ? 1'b0 :
                         (endpt_sel == EP_VS) ? video_txcork :
                         (endpt_sel == EP_UART) ? uart_txcork :
+                        (endpt_sel == EP_CARTIO) ? cartio_txcork :
                         (endpt_sel == EP_UAC) ? audio_txcork :
                         1'b1;
 
+    wire cartio_rxfifo_rxrdy;
     assign usb_rxrdy = (endpt_sel == EP_UART) ? uart_rxrdy :
+                       (endpt_sel == EP_CARTIO) ? cartio_rxfifo_rxrdy :
                        (endpt_sel == EP_CTRL) ? 1'b1 : 1'b0;
 
     /* Only the video endpoint uses high-bandwidth isochronous PIDs. */
 
     /* signals from Device Controller to EPs*/
+    wire ctrl_txact = (endpt_sel == EP_CTRL) ? usb_txact : 0;
     wire video_txact = (endpt_sel == EP_VS) ? usb_txact : 0;
     wire audio_txact = (endpt_sel == EP_UAC) ? usb_txact : 0;
     wire uart_txact = (endpt_sel == EP_UART) ? usb_txact : 0;
+    wire cartio_txact = (endpt_sel == EP_CARTIO) ? usb_txact : 0;
 
     wire video_txpop = (endpt_sel == EP_VS) ? usb_txpop : 0;
     wire audio_txpop = (endpt_sel == EP_UAC) ? usb_txpop : 0;
     wire uart_txpop = (endpt_sel == EP_UART) ? usb_txpop : 0;
+    wire cartio_txpop = (endpt_sel == EP_CARTIO) ? usb_txpop : 0;
 
     wire uart_rxact = (endpt_sel == EP_UART) ? usb_rxact : 0;
+    wire cartio_rxact = (endpt_sel == EP_CARTIO) ? usb_rxact : 0;
 
     wire uart_rxval = (endpt_sel == EP_UART) ? usb_rxval : 0;
+    wire cartio_rxval = (endpt_sel == EP_CARTIO) ? usb_rxval : 0;
+
+    wire [7:0] desc_index;
+    wire [7:0] desc_type;
+
+    logic [15:0] desc_strmux_addr;
+    logic [15:0] desc_strmux_len;
 
     usbuac_ep audio_ep(
         .rst(RESET_IN),
@@ -318,16 +349,18 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
             ,.desc_strvendor_len_i  (DESC_STRVENDOR_LEN  )
             ,.desc_strproduct_addr_i(DESC_STRPRODUCT_ADDR)
             ,.desc_strproduct_len_i (DESC_STRPRODUCT_LEN )
-            ,.desc_strserial_addr_i (DESC_STRSERIAL_ADDR )
-            ,.desc_strserial_len_i  (DESC_STRSERIAL_LEN  )
+            // The controller doesn't support custom strings, and will instead just report
+            // the serial... so lets mux them :)
+            ,.desc_strserial_addr_i (desc_strmux_addr)
+            ,.desc_strserial_len_i  (desc_strmux_len)
             ,.desc_have_strings_i   (DESCROM_HAVE_STRINGS)
 
             ,.desc_bos_addr_i(16'd0)
             ,.desc_bos_len_i(16'd0)
             ,.desc_hidrpt_addr_i(16'd0)
             ,.desc_hidrpt_len_i(16'd0)
-            ,.desc_index_o()
-            ,.desc_type_o()
+            ,.desc_index_o(desc_index)
+            ,.desc_type_o(desc_type)
 
             ,.utmi_dataout_o        (PHY_DATAOUT       )
             ,.utmi_txvalid_o        (PHY_TXVALID       )
@@ -342,6 +375,16 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
             ,.utmi_termselect_o     (PHY_TERMSELECT    )
             ,.utmi_reset_o          (PHY_RESET         )
          );
+
+    always @(*) begin
+        if ({desc_type, desc_index} == 16'h0305) begin
+           desc_strmux_addr = DESC_STRCARTIO_ADDR;
+           desc_strmux_len = DESC_STRCARTIO_LEN;
+        end else begin
+           desc_strmux_addr = DESC_STRSERIAL_ADDR;
+           desc_strmux_len = DESC_STRSERIAL_LEN;
+        end
+    end
 
     wire [63:0] serial;
     //==============================================================
@@ -379,6 +422,8 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
         ,.o_desc_strproduct_len  (DESC_STRPRODUCT_LEN )
         ,.o_desc_strserial_addr  (DESC_STRSERIAL_ADDR )
         ,.o_desc_strserial_len   (DESC_STRSERIAL_LEN  )
+        ,.o_desc_strcartio_addr  (DESC_STRCARTIO_ADDR )
+        ,.o_desc_strcartio_len   (DESC_STRCARTIO_LEN  )
         ,.o_descrom_have_strings (DESCROM_HAVE_STRINGS)
     );
 
@@ -645,6 +690,129 @@ module usbuvcuart_top #(parameter DEFAULT_SCALE_2X=1'b1)(
         ,.RX_DATA    (uart_rx_data        ) //
         ,.RX_DATA_VAL(uart_rx_data_val    ) //
     );
+
+    //==============================================================
+    //====== Support for Cartridge IO (fredemmott)
+
+    logic [12:0] cartio_txfifo_count;
+    logic [12:0] cartio_txfifo_free;
+
+    cartio_usb_simplex_fifo #(
+        .ADDR_WIDTH(12)
+    ) cartio_txfifo (
+        .clk         (pClk),
+        .reset       (RESET_IN | usb_busreset),
+
+        .wr_val_i    (cartio_tx_dval),
+        .wr_data_i   (cartio_tx_data),
+        .wr_commit_i (1'b1),
+        .wr_rewind_i (1'b0),
+
+        .rd_pop_i    (cartio_txpop),
+        .rd_data_o   (cartio_txdat),
+        .rd_commit_i (usb_txpktfin),
+        .rd_rewind_i (~cartio_txact),
+
+        .count_o     (cartio_txfifo_count),
+        .free_o      (cartio_txfifo_free)
+    );
+
+    logic cartio_rxfifo_pop;
+    logic [7:0] cartio_rxfifo_q;
+    logic [12:0] cartio_rxfifo_count;
+    logic [12:0] cartio_rxfifo_free;
+
+    cartio_usb_simplex_fifo #(
+        .ADDR_WIDTH(12)
+    ) cartio_rxfifo (
+        .clk         (pClk),
+        .reset       (RESET_IN | usb_busreset),
+
+        .wr_val_i    (cartio_rxval),
+        .wr_data_i   (usb_rxdat),
+        .wr_commit_i (usb_rxpktval),
+        .wr_rewind_i (~usb_rxact),
+
+        .rd_pop_i    (cartio_rxfifo_pop),
+        .rd_data_o   (cartio_rxfifo_q),
+        .rd_commit_i (1'b1),
+        .rd_rewind_i (1'b0),
+
+        .count_o     (cartio_rxfifo_count),
+        .free_o      (cartio_rxfifo_free)
+    );
+    assign cartio_rxfifo_pop = (cartio_rxfifo_count > 12'd0) && cartio_rx_rdy;
+    assign cartio_rx_dval = cartio_rxfifo_pop;
+    assign cartio_rx_data = cartio_rxfifo_q;
+    assign cartio_rxfifo_rxrdy = (cartio_rxfifo_free >= 13'd512) && (cartio_txfifo_free >= 13'd512);
+
+    // (command, arg) repeated; we can match command with a single-bit counter;
+    logic cartio_rx_count;
+    wire cartio_rx_command = cartio_rxval && (cartio_rx_count == 1'b0);
+    wire cartio_rx_command_produces_tx = cartio_rx_command && cartio_types::command_produces_tx(cartio_types::command_t'(usb_rxdat));
+
+    always @(posedge pClk) begin
+        cartio_rx_count <= cartio_rx_count;
+        if (~cartio_rxact) begin
+            cartio_rx_count <= 1'b0;
+        end else if (cartio_rxval) begin
+            // single-bit 'counter'
+            cartio_rx_count <= ~cartio_rx_count;
+        end
+    end
+
+    logic cartio_tx_flush_pending;
+    logic cartio_txact_d;
+    wire cartio_txact_posedge = {cartio_txact_d, cartio_txact} == 2'b01;
+
+    // Packet remainder counter; packets are 512 bytes, so 9-bit counter wraps at the end of a full packet
+    logic [8:0] cartio_tx_since_flush;
+    // WARNING: Only valid during txact posedge
+    wire [8:0] cartio_tx_since_flush_next_packet = cartio_tx_since_flush
+        - cartio_txdat_len[8:0]
+        + (cartio_tx_dval ? 9'd1 : 9'd0);
+    always @(posedge pClk) begin
+        cartio_txact_d <= cartio_txact;
+        cartio_tx_since_flush <= cartio_tx_since_flush;
+        cartio_tx_flush_pending <= cartio_tx_flush_pending;
+
+        // assuming !(cartio_tx_dval && cartio_tx_flush), as CMD_FLUSH does not produce TX
+        //
+        // we want to ignore flush if (expected TX %) 512 == 0; we only use it to mark short packets
+        if (RESET_IN) begin
+            cartio_tx_since_flush <= 9'd0;
+            cartio_tx_flush_pending <= 1'b0;
+        end else if (cartio_txact_posedge) begin
+            // wrap in either direction is fine as we just care about (count % 512)
+            cartio_tx_since_flush <= cartio_tx_since_flush_next_packet;
+            if (cartio_tx_flush || cartio_tx_flush_pending) begin
+                cartio_tx_flush_pending <= cartio_tx_since_flush_next_packet != 9'd0;
+            end
+        end else if (cartio_tx_flush) begin
+            cartio_tx_flush_pending <= cartio_tx_since_flush != 9'd0;
+        end else if (cartio_tx_dval) begin
+            cartio_tx_since_flush <= cartio_tx_since_flush + 9'd1;
+        end
+    end
+
+    always @(posedge pClk) begin
+        if (cartio_txact) begin
+            // We MUST NOT cork while in-progress
+            cartio_txcork <= 1'b0;
+        end else begin
+            cartio_txcork <=
+                (cartio_txfifo_count == 13'd0) ||
+                ((cartio_txfifo_count < 13'd512) && ~cartio_tx_flush_pending);
+        end
+    end
+
+    always @(posedge pClk) begin
+        if (RESET_IN | usb_busreset) begin
+            cartio_txdat_len <= 12'd0;
+        end else if (!cartio_txact) begin
+            cartio_txdat_len <= (cartio_txfifo_count >= 13'd512) ? 12'd512 : cartio_txfifo_count[11:0];
+        end
+    end
 
     //==============================================================
     //======FIFO

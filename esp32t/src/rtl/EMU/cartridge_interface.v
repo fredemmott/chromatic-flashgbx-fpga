@@ -16,13 +16,22 @@ module cartridge_interface #(
     input [7:0] core_d_out,
     input core_data_dir_e,
     output [7:0] core_d_in,
-    output [15:0] CART_A,
+    inout  [15:0] CART_A,
     output CART_CLK, CART_CS, CART_RD, CART_WR,
     inout [7:0] CART_D,
     inout CART_RST,
     output CART_DATA_DIR_E,
     output CART_CTRL_OE,
     output CART_PWR_EN
+
+    //---- START CartIO extras
+    ,input core_a_oe
+    ,input core_rst
+    ,input core_rst_oe
+    ,input core_audio
+    ,input core_audio_oe
+    ,inout CART_AUDIO
+    //---- End CartIO extras
 );
     localparam OFF = 3'd0, POWER_UP = 3'd1, SETTLE = 3'd2,
                RUNNING = 3'd3, POWER_DOWN = 3'd4;
@@ -92,7 +101,8 @@ module cartridge_interface #(
     assign CART_CTRL_OE = legacy ? enable_sync[1] : (state == SETTLE || state == RUNNING);
     wire pass_pins = legacy || cartridge_ready;
     wire drive_low = !legacy && state == OFF;
-    assign CART_A = pass_pins ? core_a : 16'b0;
+    assign CART_A = drive_low ? 16'b0 :
+        (pass_pins & core_a_oe) ? core_a : 16'bZ;
     assign CART_CLK = pass_pins ? core_clk : !drive_low;
     assign CART_CS = pass_pins ? core_cs : !drive_low;
     assign CART_RD = pass_pins ? core_rd : !drive_low;
@@ -102,7 +112,10 @@ module cartridge_interface #(
     assign CART_DATA_DIR_E = pass_pins ? core_data_dir_e : !drive_low;
     assign CART_D = drive_low ? 8'b0 :
                     (pass_pins && !core_data_dir_e) ? core_d_out : 8'bz;
-    // Reset can also be driven by cartridges: never actively drive it high.
-    assign CART_RST = drive_low ? 1'b0 : 1'bz;
+    // Reset can be driven by cartridges or by CartIO; never driven by emu
+    assign CART_RST = drive_low ? 1'b0 :
+        (pass_pins & core_rst_oe) ? core_rst : 1'bZ;
     assign core_d_in = cartridge_ready ? CART_D : 8'b0;
+    assign CART_AUDIO = drive_low ? 1'b0 :
+        (pass_pins & core_audio_oe) ? core_audio : 1'bZ;
 endmodule
