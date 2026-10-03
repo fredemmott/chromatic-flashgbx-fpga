@@ -569,8 +569,12 @@ module top #(
         else cartridge_reset_sync <= {cartridge_reset_sync[0], 1'b1};
 
     logic cartio_enabled_hclk_d;
-    always @(posedge hClk) begin
-        cartio_enabled_hclk_d <= cartio_enabled;
+    always @(posedge hClk or negedge cartio_enabled) begin
+        if (!cartio_enabled) begin
+            cartio_enabled_hclk_d <= 1'b0;
+        end else begin
+            cartio_enabled_hclk_d <= 1'b1;
+        end
     end
     wire cartio_hclk_negedge = { cartio_enabled_hclk_d, cartio_enabled } == 2'b10;
 
