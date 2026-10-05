@@ -1,86 +1,17 @@
-# Chromatic FPGA
-This repository houses the ModRetro Chromatic's FPGA design files.
+# Chromatic FPGA - FlashGBX
 
-For more information about the ModRetro Chromatic, please see visit [ModRetro.com](https://modretro.com/).
+This repository contains customized firmware for the ModRetro Chromatic, adding support for the ModRetro
+Chromatic.
 
-## Setup
+If you want to use your Chromatic with FlashGBX, you don't need this repository; everything you need is in [my version of FlashGBX](https://github.com/fredemmott/FlashGBX/releases/latest).
 
-### Repository
+If you want to flash this firmware so that FlashGBX doesn't need to reload it every time, the easiest way is to use my [chromatic-ez-firmware tool](https://github.com/fredemmott/chromatic-ez-firmware/releases).
 
-This project builds upon the open source work provided by the Game Boy `MiSTer` project. When checking out this repository, make sure to run the following command as this repository submodules the Game Boy `MiSTer` project.
+## Developer Notes
 
-```bash
-git submodule update --init --recursive
-```
+This repository is based on https://github.com/ModRetro/oss-chromatic-console-fpga
 
-### Gowin Development Environment
-
-The current design has been built and tested with **Gowin FPGA Designer v1.9.12.03**.
-Earlier releases used v1.9.9.03; other tool versions have not been validated for
-the current streaming changes.
-
-You will also need to apply for a local license with Gowin through their website:
-https://www.gowinsemi.com/en/support/license
-
-The license expires after one year and will require reactivation.
-
-You will receive an email within a few minutes with a `.lic` file attached. Run the Gowin IDE and install the license when it prompts you. You'll need to close and re-open the GOWIN IDE if everything was successful.
-
-## Building
-Once in the IDE, load `evt1_x2.gprj` project and click on the green recycle-like button icon to run synthesis and PnR. This will take about 5-10 minutes to complete.
-
-For a command-line build, run `gw_sh build.tcl` from `esp32t` using the Gowin
-installation's `IDE/bin/gw_sh` executable.
-
-On Windows, `esp32t/build_evt1_x2.bat` wraps the same Tcl build and copies only
-`evt1_x2.fs` and `evt1_x2.bin` into `esp32t/build`. Set `GOWIN_SH` to override
-the wrapper's default Gowin 1.9.12.03 executable path.
-
-## Flashing
-Flashing can be performed using the official [Gowin Programmer](https://www.gowinsemi.com/en/) software or the [`openFPGALoader`](https://github.com/trabucayre/openFPGALoader) utility through the Chromatic's USB interface. The Gowin Programmer requires the installation of the GWU2X device driver.
-
-Note:
-1. The Chromatic must be powered on for either tool to detect the FPGA. This means the power switch is in the **ON** position.
-2. If using `openFPGALoader`, the tool must be compiled with support for the Gowin GWU2X cable.
-
-### Example Using `openFPGALoader`
-**Detect the Chromatic FPGA While Powered On**
-```bash
-openFPGALoader --detect --cable gwu2x
-```
-
-You will see an output similar to:
-```
-empty
-User requested: 6000000 real frequency is 6000000
-index 0:
-        idcode 0x1281b
-        manufacturer Gowin
-        family GW5A
-        model  GW5A-25
-        irlength 8
-```
-
-**Flashing the Chromatic**
-
-```bash
-openFPGALoader --write-flash --cable gwu2x --reset <file>
-```
-
-Here, `<file>` refers to the generated bitstream file. This file can be found at `esp32t/impl/pnr/evt1_x2.fs`.
-
-## Custom Modifications
-
-When modifying the RTL design, please also update the 14-bit FPGA version within [esp32t/src/rtl/BSP/system_monitor.sv] around line 384 (see `version`).
-
-This will ensure you can always using the [ModRetro Update Tool](https://modretro.com/pages/downloads#mrupdater) to restore your Chromatic to the latest official release.
-
-## Issues
-Please submit all issues and bug reports through our [Contact Form](https://modretro.com/pages/contact).
-
-## Attributions
-- [GOWIN Semiconductor](https://www.gowinsemi.com/en/)
-- [MiSTer](https://github.com/MiSTer-devel/Gameboy_MiSTer)
-
-## Special Thanks
-- [rayjt9] For their palette improvements to the BootROM.
+- this adds a vendor-class USB bulk interface to the composite device
+- most of the logic is in `esp32t/src/rtl/cartio/`
+- there is additional logic in `top.v`, `usbuvcuart_top.v`, and `cartridge_interface.v` to support MUXing cartridge IO with the emulator
+- for more general information, see [the upstream repository](https://github.com/ModRetro/oss-chromatic-console-fpga)
