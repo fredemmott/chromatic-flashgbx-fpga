@@ -1,7 +1,6 @@
 # Chromatic FPGA - FlashGBX
 
-This repository contains customized firmware for the ModRetro Chromatic, adding support for the ModRetro
-Chromatic.
+This repository contains customized firmware for the ModRetro Chromatic, adding support for FlashGBX.
 
 If you want to use your Chromatic with FlashGBX, you don't need this repository; everything you need is in [my version of FlashGBX](https://github.com/fredemmott/FlashGBX/releases/latest).
 
