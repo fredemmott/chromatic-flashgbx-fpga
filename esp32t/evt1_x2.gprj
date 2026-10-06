@@ -37,11 +37,11 @@
         <File path="src/rtl/EMU/CORE/sprites.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/EMU/CORE/video.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/EMU/CORE/videoBypass.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/EMU/audio_biquad_dsp.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/EMU/audio_filter.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/EMU/audio_iir1_dsp.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/EMU/audio_biquad_dsp.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/EMU/cartridge_interface.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/EMU/cart.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/EMU/cartridge_interface.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/EMU/emu_system_top.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/USB/USBUVCUART/Gowin_PLL_UVC/Gowin_PLL_UVC.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/USB/USBUVCUART/sync_fifo/sync_rx_pkt_fifo.v" type="file.verilog" enable="1"/>
@@ -56,12 +56,15 @@
         <File path="src/rtl/USB/USBUVCUART/usb_video/usb_defs.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/USB/USBUVCUART/usb_video/usb_descriptor_video.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/USB/USBUVCUART/usb_video/uvc_defs.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/USB/USBUVCUART/uvc_capture.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/USB/USBUVCUART/uvc_rgb_to_yuy2.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/USB/USBUVCUART/uvc_byte_fifo.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/USB/USBUVCUART/uvc_packetizer.v" type="file.verilog" enable="1"/>
-        <File path="src/rtl/USB/USBUVCUART/uvc_control.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/USB/USBUVCUART/usbuvcuart_top.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/USB/USBUVCUART/uvc_byte_fifo.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/USB/USBUVCUART/uvc_capture.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/USB/USBUVCUART/uvc_control.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/USB/USBUVCUART/uvc_packetizer.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/USB/USBUVCUART/uvc_rgb_to_yuy2.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/cartio/cartio_top.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/cartio/cartio_types.sv" type="file.verilog" enable="1"/>
+        <File path="src/rtl/cartio/cartio_usb_simplex_fifo.sv" type="file.verilog" enable="1"/>
         <File path="src/top.v" type="file.verilog" enable="1"/>
         <File path="src/Gameboy_MiSTer/rtl/T80/T80_ALU.vhd" type="file.vhdl" enable="1"/>
         <File path="src/Gameboy_MiSTer/rtl/T80/T80_Pack.vhd" type="file.vhdl" enable="1"/>
