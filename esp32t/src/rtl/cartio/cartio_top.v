@@ -403,15 +403,21 @@ localparam FW_INFO_BLOB = {
 
     // Our version timestamp - BCD
     /*  YYYY_MM_DD */
-    32'h2026_09_27,
+    32'h2026_10_06,
 
     // If we do multiple builds on the same day... __NOT__ BCD!
     8'd00, // Revision
 
     // Upstream (ModRetro) version number - __NOT__ BCD
     8'(fpga_fw_version::MAJOR),
-    8'(fpga_fw_version::MINOR)
+    8'(fpga_fw_version::MINOR),
+
+    // Lowest compatible protocol version
+    8'd1,
+    // Highest tested protocol version
+    8'd1
 };
+
 localparam FW_INFO_ROM_LEN = $bits(FW_INFO_BLOB) / 8;
 localparam FW_INFO_ROM_ADDR_WIDTH = $clog2(FW_INFO_ROM_LEN);
 reg [7:0] fw_info_rom[0:FW_INFO_ROM_LEN- 1];
