@@ -261,10 +261,10 @@ wire       CARTIO_ENABLED;
 
     wire low_battery;
     wire boot_rom_enabled;
-    wire LED_Green;
-    wire LED_Red;
-    wire LED_Yellow;
-    wire LED_White;
+    logic LED_Green;
+    logic LED_Red;
+    logic LED_Yellow;
+    logic LED_White;
     wire [7:0]  pmic_sys_status;
 
 
@@ -916,10 +916,37 @@ wire       CARTIO_ENABLED;
     );
 
     wire cartio_activity_led;
-    assign LED_Green = cartio_enabled ? (~CART_PWR_EN) : monitor_LED_Green;
-    assign LED_Red = cartio_enabled ? CART_PWR_EN : monitor_LED_Red;
-    assign LED_Yellow = cartio_enabled ? 1'b0 : monitor_LED_Yellow;
-    assign LED_White = cartio_enabled ? cartio_activity_led : monitor_LED_White;
+    always @(*) begin
+        LED_Green = 1'b0;
+        LED_Red = 1'b0;
+        LED_Yellow = 1'b0;
+        LED_White = 1'b0;
+        if (cartio_enabled) begin
+            // Perhaps hotplugging cartridges is OK when:
+            // - VERSION_DET is low (new board)
+            // - CART_CTRL_OE is low (requires VERSION_DET low)
+            //
+            // See cartridge_interface for upstream logic.
+            //
+            // If confirmed, set LED_Green when:
+            //     cartio_enabled
+            //     && (~CART_PWR_EN)
+            //     && (~VERSION_DET)
+            //     && (~CART_CTRL_OE)
+            if (cartio_activity_led) begin
+                LED_Red = 1'b1;
+            end else if (CART_PWR_EN) begin
+                LED_Yellow = 1'b1;
+            end else begin
+                LED_White = 1'b1;
+            end
+        end else begin
+            LED_Green = monitor_LED_Green;
+            LED_Red = monitor_LED_Red;
+            LED_Yellow = monitor_LED_Yellow;
+            LED_White = monitor_LED_White;
+        end
+    end
 
     UART2
     #(.CLK_FREQ(30'd8388608))
