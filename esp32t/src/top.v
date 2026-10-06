@@ -125,6 +125,7 @@ module top #(
     output              CHG_EN_FPGA
 );
 
+wire       CARTIO_ENABLED;
 
 // ---------------------------------------------------------------
 // 'POWER_ON_FPGA` high when chromatic powered off USB but
@@ -137,7 +138,7 @@ module top #(
 
     wire [7:0] temperature;
     wire emulator_was_reset; // signal from emulator core, indicating a reset took place
-    wire appear_off = emulator_was_reset | POWER_ON_FPGA; // turn stuff off , alternatively could set CART_RST = ~POWER_ON_FPGA ...
+    wire appear_off = emulator_was_reset | POWER_ON_FPGA | CARTIO_ENABLED; // turn stuff off , alternatively could set CART_RST = ~POWER_ON_FPGA ...
 
     // Cartridge power and isolation are sequenced below, independently of
     // emulator/menu resets and USB activity.
@@ -358,7 +359,6 @@ module top #(
     vid_system_top #(ISSIMU)
     u_vid_system_top(
         .appear_off (appear_off),
-        .cartio_emu_lockout(cartio_emu_lockout),
         .gClk(gClk),
         .hClk(hClk),
         .pClk(pClk),
@@ -769,8 +769,6 @@ module top #(
             else
                 usbrst <= 1'd0;
 
-    wire       CARTIO_RESET;
-    wire       CARTIO_ENABLED;
     wire       CARTIO_TX_FLUSH;
     wire       CARTIO_TX_DVAL;
     wire [7:0] CARTIO_TX_DATA;
