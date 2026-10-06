@@ -45,6 +45,21 @@ always @(posedge clk) begin
     end
 end
 
+// Hold `cart_enable` low for a short while; this improves reliability:
+// - on cartridges that take a while to reset
+// - on games that don't use an MBC, but have an MBC cartridge; rst is sometimes not sufficient
+//
+// Can be peproed by flashing or dumping "Dangerous Demolition" to a FunnyPlaying EverSave MBC5 8MB/32KB
+// then disconnecting; not 100% reliable repro, but say 60% failure rate at rebooting into the game
+logic [22:0] disconnect_hold;
+always @(posedge clk) begin
+    if (state != S_DISCONNECTING) begin
+        disconnect_hold <= 23'd6_000_000; // 100ms
+    end else if (disconnect_hold > 23'd0) begin
+        disconnect_hold <= disconnect_hold - 23'd1;
+    end
+end
+
 logic [7:0] fifo [2047:0];
 logic [10:0] fifo_read_p;
 logic [10:0] fifo_write_p;
@@ -62,6 +77,7 @@ typedef enum {
   S_WAIT_ARG,
   S_EXEC_VERIFY, // post-write CMD_VERIFY_DATA or CMD_VERIFY_STATUS_REGISTER
   S_EXEC_DELAY,
+  S_DISCONNECTING, // power-off cartridge
   S_DISCONNECTED
 } state_t;
 state_t state;
@@ -183,7 +199,7 @@ always @(posedge clk) begin
                     CMD_VERIFY_STATUS_REGISTER: state <= S_EXEC_VERIFY;
                     CMD_DELAY: state <= S_EXEC_DELAY;
                     CMD_FLUSH: tx_flush <= 1'b1;
-                    CMD_BYE: state <= S_DISCONNECTED;
+                    CMD_BYE: state <= S_DISCONNECTING;
                     default: /* nothing to do */ ;
                 endcase
             end
@@ -191,6 +207,8 @@ always @(posedge clk) begin
             default: state <= S_IDLE;
         endcase
     end else if ((state == S_IDLE) && (timeout == 26'd0) && enabled_o) begin
+        state <= S_DISCONNECTING;
+    end else if ((state == S_DISCONNECTING) && (disconnect_hold == 23'd0)) begin
         state <= S_DISCONNECTED;
     end else if (state == S_DISCONNECTED) begin
         state <= S_IDLE;
@@ -267,6 +285,19 @@ always @(posedge clk) begin
     end
 end
 
+logic enable_cart;
+logic disable_cart;
+always @(*) begin
+    enable_cart = 1'b0;
+    disable_cart = 1'b0;
+    if ((command == CMD_SET_STATE_BITS) && arg[STATE_BIT_CART_POWERED + 4]) begin
+        enable_cart = arg[STATE_BIT_CART_POWERED];
+        disable_cart = ~arg[STATE_BIT_CART_POWERED];
+    end else if (state == S_DISCONNECTING) begin
+        disable_cart = 1'b1;
+    end
+end
+
 `define SET_PIN(TARGET, IDX) \
         if (arg[IDX + 4]) TARGET <= arg[IDX];
 `define SET_TRISTATE_PIN(TARGET, IDX) \
@@ -277,6 +308,8 @@ end
 
 always @(posedge clk) begin
     if (reset | !enabled_o) begin
+        cart_enabled <= 1'b0;
+
         cart_clk <= 1'b1;
         cart_wr <= 1'b1;
         cart_rd <= 1'b1;
@@ -332,16 +365,35 @@ always @(posedge clk) begin
                 default: /* nothing */ ;
             endcase
         end
-    end
-end
 
-always @(posedge clk) begin
-    if (reset || (!enabled_o) || (state == S_DISCONNECTED)) begin
-        cart_enabled <= 1'b0;
-    end else if ((command == CMD_SET_STATE_BITS) && arg[STATE_BIT_CART_POWERED + 4]) begin
-        cart_enabled <= arg[STATE_BIT_CART_POWERED];
-    end else begin
-        cart_enabled <= cart_enabled;
+        if (enable_cart) begin
+            cart_enabled <= 1'b1;
+        end else if (disable_cart) begin
+            cart_enabled <= 1'b0;
+            cart_a_oe <= 1'b0;
+            cart_data_dir_e <= 1'b1;
+            cart_clk <= 1'b0;
+            cart_cs <= 1'b0;
+            cart_rd <= 1'b0;
+            cart_wr <= 1'b0;
+            cart_rst.oe <= 1'b0;
+            cart_audio.oe <= 1'b0;
+        end
+
+// Useful for voltage testing
+`ifdef FORCE_EVERYTHING_HIGH
+        cart_enabled <= 1'b1;
+        cart_a <= 16'hFFFF;
+        cart_a_oe <= 1'b1;
+        cart_clk <= 1'b1;
+        cart_cs <= 1'b1;
+        cart_rd <= 1'b1;
+        cart_wr <= 1'b1;
+        cart_data_dir_e <= 1'b0;
+        cart_d_out <= 8'hFF;
+        cart_rst <= '{default: 1};
+        cart_audio <= '{default: 1};
+`endif
     end
 end
 
