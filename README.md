@@ -19,4 +19,4 @@ This repository is based on https://github.com/ModRetro/oss-chromatic-console-fp
 
 v2026.05.06.01 was largely LLM-generated.
 
-v2026.09.14.00 and above were completely rewritten by hand (several times), and do not contain significant amounts of LLM-generate code.
+v2026.09.14.00 and above were completely rewritten by hand (several times), and do *not* contain significant amounts of LLM-generated code.
