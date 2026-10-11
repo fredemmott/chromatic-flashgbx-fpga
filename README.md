@@ -14,3 +14,9 @@ This repository is based on https://github.com/ModRetro/oss-chromatic-console-fp
 - most of the logic is in `esp32t/src/rtl/cartio/`
 - there is additional logic in `top.v`, `usbuvcuart_top.v`, and `cartridge_interface.v` to support MUXing cartridge IO with the emulator
 - for more general information, see [the upstream repository](https://github.com/ModRetro/oss-chromatic-console-fpga)
+
+## AI Usage
+
+v2026.05.06.01 was largely LLM-generated.
+
+v2026.09.14.00 and above were completely rewritten by hand (several times), and do not contain significant amounts of LLM-generate code.
